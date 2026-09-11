@@ -1,16 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Standalone output for Docker deployment
-  output: "standalone",
+  // NOTE: Do NOT set output: "standalone" on Vercel — it moves .nft.json trace
+  // files to a location Vercel's post-build step can't find, causing packaging failure.
+  // standalone is only for self-hosted Docker deployments.
 
   // Disable x-powered-by header (security)
   poweredByHeader: false,
-
-  // Prevent client bundles from including server-only modules
-  experimental: {
-    // Strict mode for server actions
-  },
 
   // Headers for security
   async headers() {
