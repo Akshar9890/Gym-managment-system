@@ -1,10 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // NOTE: Do NOT set output: "standalone" on Vercel — it moves .nft.json trace
-  // files to a location Vercel's post-build step can't find, causing packaging failure.
-  // standalone is only for self-hosted Docker deployments.
-
   // Disable x-powered-by header (security)
   poweredByHeader: false,
 
@@ -24,3 +20,4 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+
