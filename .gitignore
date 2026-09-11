@@ -30,8 +30,25 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files — .env.example IS committed; all others are NOT
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+# Keep .env.example (no secrets in it)
+!.env.example
+
+# Uploads (user-uploaded photos stored locally)
+public/uploads/
+
+# Swap files
+*.swp
+*.swo
+
+# Prisma
+prisma/*.db
+prisma/migrations/.gitkeep
 
 # vercel
 .vercel

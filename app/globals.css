@@ -1,26 +1,180 @@
+/* app/globals.css — BSF THE GYM Design System */
+/* Dark luxury athletic aesthetic per DESIGN.md */
+
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  /* ── Color System ───────────────────────────────────────────────────────── */
+  --color-bg-base: #0B0C0E;
+  --color-bg-elevated: #111316;
+  --color-surface-card: #17191E;
+  --color-surface-border: #252830;
+  --color-surface-hover: #1E2128;
+
+  /* Accent — electric amber, used sparingly */
+  --color-accent: #F59E0B;
+  --color-accent-dim: #D97706;
+  --color-accent-subtle: rgba(245, 158, 11, 0.12);
+
+  /* Status colors — consistent across badges, rows, KPIs */
+  --color-status-active: #22C55E;       /* green */
+  --color-status-expiring: #F59E0B;     /* amber */
+  --color-status-expired: #EF4444;      /* red */
+  --color-status-cancelled: #6B7280;   /* neutral gray */
+  --color-status-paused: #3B82F6;      /* blue */
+
+  /* Typography */
+  --color-text-primary: #F9FAFB;
+  --color-text-secondary: #9CA3AF;
+  --color-text-muted: #6B7280;
+  --color-text-accent: #F59E0B;
+
+  /* ── Font Families ──────────────────────────────────────────────────────── */
+  --font-display: var(--font-outfit), 'Outfit', sans-serif;
+  --font-body: var(--font-inter), 'Inter', sans-serif;
+
+  /* ── Shadows ────────────────────────────────────────────────────────────── */
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-card-hover: 0 4px 16px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.4);
+  --shadow-modal: 0 20px 60px rgba(0,0,0,0.7);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ── Base Styles ─────────────────────────────────────────────────────────── */
+* {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: dark;
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-bg-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+/* Tabular figures for numeric data (dates, currency, counts) */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Status Badge Classes ────────────────────────────────────────────────── */
+.badge-active {
+  color: var(--color-status-active);
+  background-color: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+.badge-expiring {
+  color: var(--color-status-expiring);
+  background-color: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+.badge-expired {
+  color: var(--color-status-expired);
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+.badge-cancelled {
+  color: var(--color-status-cancelled);
+  background-color: rgba(107, 114, 128, 0.1);
+  border: 1px solid rgba(107, 114, 128, 0.2);
+}
+.badge-paused {
+  color: var(--color-status-paused);
+  background-color: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+/* ── Card Component ──────────────────────────────────────────────────────── */
+.card {
+  background-color: var(--color-surface-card);
+  border: 1px solid var(--color-surface-border);
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow-card);
+}
+.card-hover {
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.card-hover:hover {
+  box-shadow: var(--shadow-card-hover);
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+/* ── Scrollbar Styling ───────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg-base);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* ── Focus Styles (WCAG AA compliant) ───────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── Reduced Motion ──────────────────────────────────────────────────────── */
+/* ── Print Stylesheet (Single-page clean receipt voucher) ─────────────────── */
+@media print {
+  /* Hide all background layout, navbar, modals, and screen elements */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Reset document background */
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Show only the printable receipt */
+  #printable-receipt,
+  #printable-receipt * {
+    visibility: visible !important;
+  }
+
+  #printable-receipt {
+    position: absolute !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: 0 !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+    max-width: 440px !important;
+    padding: 24px !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 1.5px dashed #1f2937 !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+}
+

@@ -1,0 +1,319 @@
+// prisma/schema.prisma — BSF THE GYM
+// All date math in Asia/Kolkata; startDate/endDate are calendar dates (no time component).
+// Audit/notification timestamps remain UTC instants (DateTime @default(now())).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  STAFF
+}
+
+enum MemberStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum MembershipStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  EXPIRING_SOON
+  EXPIRED
+  REJECTED
+  CANCELLED
+  PAUSED
+}
+
+enum PaymentStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  REJECTED
+  PENDING
+  PARTIAL
+  PAID
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  UPI
+  CARD
+  BANK_TRANSFER
+  OTHER
+}
+
+enum NotificationType {
+  EXPIRY_REMINDER_10_DAY
+  EXPIRY_REMINDER_MANUAL
+  MEMBERSHIP_EXPIRED
+  RENEWAL_CONFIRMATION
+  PAYMENT_RECEIPT
+  ADMIN_ALERT
+}
+
+enum NotificationChannel {
+  WHATSAPP
+  INTERNAL
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  SIMULATED
+}
+
+enum JobStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+  PARTIAL
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USER (admin/staff accounts — not gym member accounts)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  name         String
+  phone        String?    // Indian mobile number
+  profilePhoto String?    // URL or base64 data URI
+  role         Role       @default(STAFF)
+  isActive     Boolean    @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  auditLogs           AuditLog[]
+  paymentsReceived    Payment[]    @relation("PaymentReceivedBy")
+  paymentsVerified    Payment[]    @relation("PaymentVerifiedBy")
+  membershipsCreated  Membership[] @relation("MembershipCreatedBy")
+  membershipsVerified Membership[] @relation("MembershipVerifiedBy")
+  membersCreated      Member[]     @relation("MemberCreatedBy")
+
+  @@index([email])
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MEMBERSHIP PLAN (database-driven, not hardcoded)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model MembershipPlan {
+  id            String   @id @default(cuid())
+  name          String   // e.g. "Monthly", "Quarterly", "Half-Yearly", "Annual"
+  durationMonths Int     // 1, 3, 6, or 12
+  price         Decimal  @db.Decimal(10, 2)
+  description   String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  memberships   Membership[]
+
+  @@map("membership_plans")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MEMBER
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Member {
+  id                    String       @id @default(cuid())
+  fullName              String
+  profilePhoto          String?      // URL/path
+  dateOfBirth           DateTime?
+  gender                Gender?
+  phoneNumber           String       // primary contact, Indian format
+  whatsappNumber        String?      // may differ from phoneNumber
+  whatsappVerified      Boolean      @default(false)
+  email                 String?
+  address               String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  joinDate              DateTime
+  notes                 String?
+  status                MemberStatus @default(ACTIVE)
+  createdById           String?
+  createdBy             User?        @relation("MemberCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  memberships           Membership[]
+  payments              Payment[]
+  notifications         Notification[]
+
+  @@index([phoneNumber])
+  @@index([whatsappNumber])
+  @@index([email])
+  @@map("members")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MEMBERSHIP (immutable historical record once created)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Membership {
+  id                   String           @id @default(cuid())
+  membershipReference String           @unique // e.g. BSF-MEM-2026-000001
+  memberId             String
+  planId               String
+  startDate            DateTime         @db.Date  // civil date, Asia/Kolkata, no time
+  endDate              DateTime         @db.Date  // inclusive, civil date, Asia/Kolkata
+  durationMonths       Int              // captured at creation, not re-derived from plan
+  priceAtPurchase      Decimal          @db.Decimal(10, 2) // immutable
+  discount             Decimal          @default(0) @db.Decimal(10, 2)
+  finalAmount          Decimal          @db.Decimal(10, 2)
+  paymentStatus        PaymentStatus    @default(PENDING_VERIFICATION)
+  membershipStatus     MembershipStatus @default(PENDING_VERIFICATION)
+  notes                String?
+  createdById          String?
+  verifiedById         String?
+  verifiedAt           DateTime?
+  rejectionReason      String?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  member               Member           @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  plan                 MembershipPlan   @relation(fields: [planId], references: [id], onDelete: Restrict)
+  createdBy            User?            @relation("MembershipCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  verifiedBy           User?            @relation("MembershipVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+  payments             Payment[]
+  notifications        Notification[]
+
+  @@index([endDate])
+  @@index([membershipStatus])
+  @@index([membershipReference])
+  @@map("memberships")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAYMENT
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Payment {
+  id                   String        @id @default(cuid())
+  membershipId         String
+  memberId             String
+  receivedById         String?       // Staff user who collected payment
+  amount               Decimal       @db.Decimal(10, 2)
+  paymentMethod        PaymentMethod @default(CASH)
+  paymentStatus        PaymentStatus @default(PENDING_VERIFICATION)
+  receiptNumber        String        @unique // BSF-RCP-2026-000001, globally unique
+  transactionReference String?       // UPI / bank ref / card transaction ID
+  paymentProof         String?       // URL / local upload path for screenshot/photo
+  notes                String?
+  verifiedById         String?
+  verifiedAt           DateTime?
+  rejectionReason      String?
+  paidAt               DateTime      @default(now())
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  membership           Membership    @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+  member               Member        @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  receivedBy           User?         @relation("PaymentReceivedBy", fields: [receivedById], references: [id], onDelete: SetNull)
+  verifiedBy           User?         @relation("PaymentVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+
+  @@index([paymentStatus])
+  @@index([receiptNumber])
+  @@map("payments")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NOTIFICATION
+// DB-level idempotency: unique(membershipId, type, triggerDate) per DECISIONS.md D3
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Notification {
+  id                 String              @id @default(cuid())
+  memberId           String
+  membershipId       String?
+  type               NotificationType
+  channel            NotificationChannel @default(WHATSAPP)
+  status             NotificationStatus  @default(PENDING)
+  recipientNumber    String?             // WhatsApp number used
+  messageBody        String?
+  providerMessageId  String?             // ID returned by WhatsApp provider
+  errorDetails       String?             // provider error, if FAILED
+  triggerDate        DateTime            @db.Date // civil date — idempotency key component
+  sentAt             DateTime?
+  readAt             DateTime?
+  isRead             Boolean             @default(false)
+  metadata           Json?               // non-sensitive context (plan name, days remaining, etc.)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  member             Member              @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  membership         Membership?         @relation(fields: [membershipId], references: [id], onDelete: SetNull)
+
+  // D3: DB-level idempotency — prevents double sends even under concurrent job runs
+  @@unique([membershipId, type, triggerDate], name: "idempotency_key")
+  @@index([status, createdAt])
+  @@map("notifications")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUDIT LOG — every admin mutation recorded here
+// ─────────────────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  action     String   // e.g. "CREATE_MEMBER", "RENEW_MEMBERSHIP", "OVERRIDE_START_DATE"
+  entityType String   // e.g. "Member", "Membership", "Payment"
+  entityId   String
+  oldValues  Json?    // previous state snapshot (no secrets)
+  newValues  Json?    // new state snapshot (no secrets)
+  metadata   Json?    // non-sensitive extra context
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt])
+  @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// JOB EXECUTION — daily lifecycle job observability
+// ─────────────────────────────────────────────────────────────────────────────
+
+model JobExecution {
+  id              String    @id @default(cuid())
+  jobName         String    // "membership-lifecycle-job"
+  startedAt       DateTime  @default(now())
+  completedAt     DateTime?
+  status          JobStatus @default(RUNNING)
+  processedCount  Int       @default(0)
+  successCount    Int       @default(0)
+  failureCount    Int       @default(0)
+  skippedCount    Int       @default(0)
+  errorDetails    String?
+  metadata        Json?
+
+  @@map("job_executions")
+}
