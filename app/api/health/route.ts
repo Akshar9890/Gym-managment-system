@@ -30,9 +30,6 @@ export async function GET() {
 
   return NextResponse.json({
     status: dbStatus === "connected" ? "healthy" : "degraded",
-    dbStatus,
-    userCount,
-    dbError,
-    envCheck,
+    db: dbStatus,
   });
 }
