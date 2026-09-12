@@ -4,6 +4,11 @@ const nextConfig: NextConfig = {
   // Disable x-powered-by header (security)
   poweredByHeader: false,
 
+  // Tree-shake heavy libraries for faster bundle downloads on mobile
+  experimental: {
+    optimizePackageImports: ["lucide-react", "date-fns", "recharts"],
+  },
+
   // Headers for security
   async headers() {
     return [
