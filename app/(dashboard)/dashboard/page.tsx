@@ -14,6 +14,7 @@ import {
   ShieldAlert,
   CreditCard,
   Sparkles,
+  ShieldCheck,
 } from "lucide-react";
 import {
   UpcomingExpirationsTable,
@@ -34,6 +35,7 @@ export default async function DashboardPage() {
     revenueMtd,
     pendingPaymentsCount,
     upcomingMemberships,
+    pendingApprovals,
   ] = await Promise.all([
     // Total members
     prisma.member.count(),
@@ -87,7 +89,24 @@ export default async function DashboardPage() {
       orderBy: { endDate: "asc" },
       take: 20,
     }),
+
+    // Pending Approvals (Staff-collected payments awaiting Admin verification)
+    prisma.payment.aggregate({
+      _count: { id: true },
+      _sum: { amount: true },
+      where: {
+        paymentStatus: "PENDING_VERIFICATION",
+      },
+    }),
   ]);
+
+  const pendingApprovalsCount = pendingApprovals._count.id || 0;
+  const pendingApprovalsTotal = Number(pendingApprovals._sum.amount || 0);
+  const formattedPendingTotal = new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(pendingApprovalsTotal);
 
   let activeMemberships = 0;
   let expiringMemberships = 0;
@@ -170,7 +189,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
         {/* Total Members */}
         <Link
           href="/members"
@@ -266,6 +285,25 @@ export default async function DashboardPage() {
           </div>
         </Link>
 
+        {/* Pending Approvals */}
+        <Link
+          href="/payment-verification"
+          className="bg-[#17191E] border border-[#252830] hover:border-amber-500/50 hover:bg-[#1C1F26] rounded-xl p-4 flex flex-col justify-between transition-all group cursor-pointer shadow-md"
+        >
+          <div className="flex items-center justify-between text-gray-400 group-hover:text-gray-300">
+            <span className="text-xs font-medium">Pending Approvals</span>
+            <ShieldCheck className={`w-4 h-4 transition-transform group-hover:scale-110 ${pendingApprovalsCount > 0 ? "text-amber-400" : "text-gray-500"}`} />
+          </div>
+          <div className="mt-3">
+            <span className={`text-2xl font-bold font-display tabular-nums ${pendingApprovalsCount > 0 ? "text-amber-400" : "text-white"}`}>
+              {pendingApprovalsCount}
+            </span>
+            <span className="text-[11px] text-amber-400/80 block mt-0.5">
+              {formattedPendingTotal} awaiting verification
+            </span>
+          </div>
+        </Link>
+
         {/* Revenue MTD */}
         <Link
           href="/reports"
@@ -296,7 +334,9 @@ export default async function DashboardPage() {
               <span>Today&apos;s Attention</span>
             </div>
             <h2 className="text-lg font-bold text-white">
-              {expiringMemberships + expiredMemberships > 0
+              {pendingApprovalsCount > 0
+                ? `${pendingApprovalsCount} Payment${pendingApprovalsCount > 1 ? "s" : ""} Awaiting Verification`
+                : expiringMemberships + expiredMemberships > 0
                 ? `${expiringMemberships + expiredMemberships} Members Require Renewal Attention`
                 : "All Memberships Are In Good Standing"}
             </h2>
@@ -306,6 +346,17 @@ export default async function DashboardPage() {
           </div>
 
           <div className="flex items-center gap-4 text-xs shrink-0">
+            {pendingApprovalsCount > 0 && (
+              <Link
+                href="/payment-verification"
+                className="text-center px-4 py-2 rounded-lg bg-[#111316]/80 border border-amber-500/50 hover:border-amber-400 hover:bg-[#1A1D24] transition-all cursor-pointer block"
+              >
+                <div className="text-lg font-bold text-amber-400 font-mono">
+                  {pendingApprovalsCount}
+                </div>
+                <div className="text-amber-400 text-[11px]">Approvals</div>
+              </Link>
+            )}
             <Link
               href="/members?filter=expiring"
               className="text-center px-4 py-2 rounded-lg bg-[#111316]/80 border border-[#252830] hover:border-amber-500/50 hover:bg-[#1A1D24] transition-all cursor-pointer block"
