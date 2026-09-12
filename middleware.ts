@@ -9,7 +9,7 @@ import { sessionOptions, SessionData } from "@/lib/auth/session";
 import { validateCsrf } from "@/lib/auth/csrf";
 
 // Routes that don't need authentication
-const PUBLIC_ROUTES = ["/login", "/api/auth/login"];
+const PUBLIC_ROUTES = ["/login", "/api/auth/login", "/api/health"];
 
 // API routes that are public (job endpoint is secured by its own secret)
 const PUBLIC_API_PREFIXES = ["/api/auth/"];
