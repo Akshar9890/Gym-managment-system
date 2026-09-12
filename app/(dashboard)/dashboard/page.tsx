@@ -27,7 +27,7 @@ export default async function DashboardPage() {
   const today = new Date();
   const monthStart = startOfMonth(today);
 
-  // 1. Fetch KPI metrics concurrently
+  // 1. Fetch KPI metrics with individual fault tolerance to prevent 500 errors on transient pool timeouts
   const [
     totalMembers,
     allMembersWithLatest,
@@ -38,70 +38,103 @@ export default async function DashboardPage() {
     pendingApprovals,
   ] = await Promise.all([
     // Total members
-    prisma.member.count(),
+    prisma.member.count().catch((e: any) => {
+      console.error("Dashboard totalMembers count error:", e);
+      return 0;
+    }),
 
     // Members with latest membership to derive active, expiring, and expired member counts
-    prisma.member.findMany({
-      select: {
-        id: true,
-        memberships: {
-          orderBy: { endDate: "desc" },
-          take: 1,
-          select: { membershipStatus: true },
-        },
-      },
-    }),
-
-    // New members joined this month
-    prisma.member.count({
-      where: { createdAt: { gte: monthStart } },
-    }),
-
-    // Revenue MTD
-    prisma.payment.aggregate({
-      _sum: { amount: true },
-      where: {
-        createdAt: { gte: monthStart },
-        paymentStatus: { in: ["PAID", "PARTIAL"] },
-      },
-    }),
-
-    // Pending/Partial payments count
-    prisma.membership.count({
-      where: { paymentStatus: { in: ["PARTIAL", "PENDING"] } },
-    }),
-
-    // Upcoming expirations (next 10 days, or expiring soon)
-    prisma.membership.findMany({
-      where: {
-        membershipStatus: { in: ["ACTIVE", "EXPIRING_SOON"] },
-      },
-      include: {
-        member: {
-          include: {
-            memberships: {
-              where: { membershipStatus: "ACTIVE" },
-            },
+    prisma.member
+      .findMany({
+        select: {
+          id: true,
+          memberships: {
+            orderBy: { endDate: "desc" },
+            take: 1,
+            select: { membershipStatus: true },
           },
         },
-        plan: true,
-      },
-      orderBy: { endDate: "asc" },
-      take: 20,
-    }),
+      })
+      .catch((e: any) => {
+        console.error("Dashboard allMembersWithLatest query error:", e);
+        return [];
+      }),
+
+    // New members joined this month
+    prisma.member
+      .count({
+        where: { createdAt: { gte: monthStart } },
+      })
+      .catch((e: any) => {
+        console.error("Dashboard newMembersThisMonth count error:", e);
+        return 0;
+      }),
+
+    // Revenue MTD
+    prisma.payment
+      .aggregate({
+        _sum: { amount: true },
+        where: {
+          createdAt: { gte: monthStart },
+          paymentStatus: { in: ["PAID", "PARTIAL"] },
+        },
+      })
+      .catch((e: any) => {
+        console.error("Dashboard revenueMtd aggregate error:", e);
+        return { _sum: { amount: null } };
+      }),
+
+    // Pending/Partial payments count
+    prisma.membership
+      .count({
+        where: { paymentStatus: { in: ["PARTIAL", "PENDING"] } },
+      })
+      .catch((e: any) => {
+        console.error("Dashboard pendingPaymentsCount count error:", e);
+        return 0;
+      }),
+
+    // Upcoming expirations (next 10 days, or expiring soon)
+    prisma.membership
+      .findMany({
+        where: {
+          membershipStatus: { in: ["ACTIVE", "EXPIRING_SOON"] },
+        },
+        include: {
+          member: {
+            include: {
+              memberships: {
+                where: { membershipStatus: "ACTIVE" },
+              },
+            },
+          },
+          plan: true,
+        },
+        orderBy: { endDate: "asc" },
+        take: 20,
+      })
+      .catch((e: any) => {
+        console.error("Dashboard upcomingMemberships query error:", e);
+        return [];
+      }),
 
     // Pending Approvals (Staff-collected payments awaiting Admin verification)
-    prisma.payment.aggregate({
-      _count: { id: true },
-      _sum: { amount: true },
-      where: {
-        paymentStatus: "PENDING_VERIFICATION",
-      },
-    }),
+    prisma.payment
+      .aggregate({
+        _count: { id: true },
+        _sum: { amount: true },
+        where: {
+          paymentStatus: "PENDING_VERIFICATION",
+        },
+      })
+      .catch((e: any) => {
+        console.error("Dashboard pendingApprovals aggregate error:", e);
+        return { _count: { id: 0 }, _sum: { amount: null } };
+      }),
   ]);
 
-  const pendingApprovalsCount = pendingApprovals._count.id || 0;
-  const pendingApprovalsTotal = Number(pendingApprovals._sum.amount || 0);
+  const pendingApprovalsCount = pendingApprovals?._count?.id ?? 0;
+  const pendingApprovalsTotal = Number(pendingApprovals?._sum?.amount ?? 0);
   const formattedPendingTotal = new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
@@ -112,8 +145,8 @@ export default async function DashboardPage() {
   let expiringMemberships = 0;
   let expiredMemberships = 0;
 
-  for (const m of allMembersWithLatest) {
-    const latest = m.memberships[0];
+  for (const m of allMembersWithLatest || []) {
+    const latest = m?.memberships?.[0];
     if (!latest) continue;
     if (latest.membershipStatus === "ACTIVE") {
       activeMemberships++;
@@ -128,32 +161,57 @@ export default async function DashboardPage() {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 0,
-  }).format(Number(revenueMtd._sum.amount || 0));
+  }).format(Number(revenueMtd?._sum?.amount ?? 0));
 
   // Transform upcoming expirations (exclude memberships where member has already paid advance renewal)
-  const expirationRows: ExpirationRow[] = upcomingMemberships
+  const expirationRows: ExpirationRow[] = (upcomingMemberships || [])
     .filter((m: any) => {
+      if (!m || !m.member || !m.plan || !m.endDate) return false;
       const hasSubsequentRenewal = m.member?.memberships?.some(
-        (other: any) => other.id !== m.id && new Date(other.startDate) >= new Date(m.endDate)
+        (other: any) =>
+          other &&
+          other.id !== m.id &&
+          other.startDate &&
+          new Date(other.startDate) >= new Date(m.endDate)
       );
       if (hasSubsequentRenewal) return false;
-      const daysRemaining = differenceInCalendarDays(new Date(m.endDate), today);
-      return daysRemaining >= 0 && daysRemaining <= 10;
+      try {
+        const daysRemaining = differenceInCalendarDays(new Date(m.endDate), today);
+        return daysRemaining >= 0 && daysRemaining <= 10;
+      } catch {
+        return false;
+      }
     })
     .slice(0, 10)
     .map((m: any) => {
-      const daysRemaining = differenceInCalendarDays(new Date(m.endDate), today);
+      let daysRemaining = 0;
+      try {
+        daysRemaining = differenceInCalendarDays(new Date(m.endDate), today);
+      } catch {
+        daysRemaining = 0;
+      }
+
+      let isoEndDate = "";
+      try {
+        isoEndDate =
+          m.endDate instanceof Date
+            ? m.endDate.toISOString()
+            : new Date(m.endDate).toISOString();
+      } catch {
+        isoEndDate = new Date().toISOString();
+      }
+
       return {
-        membershipId: m.id,
-        memberId: m.member.id,
-        memberName: m.member.fullName,
-        phoneNumber: m.member.phoneNumber,
-        whatsappNumber: m.member.whatsappNumber || m.member.phoneNumber,
-        whatsappVerified: m.member.whatsappVerified,
-        planName: m.plan.name,
-        endDate: m.endDate.toISOString(),
-        membershipStatus: m.membershipStatus,
-        daysRemaining,
+        membershipId: m.id || "",
+        memberId: m.member?.id || "",
+        memberName: m.member?.fullName || "Unknown Member",
+        phoneNumber: m.member?.phoneNumber || "",
+        whatsappNumber: m.member?.whatsappNumber || m.member?.phoneNumber || "",
+        whatsappVerified: Boolean(m.member?.whatsappVerified),
+        planName: m.plan?.name || "Standard Plan",
+        endDate: isoEndDate,
+        membershipStatus: m.membershipStatus || "ACTIVE",
+        daysRemaining: isNaN(daysRemaining) ? 0 : daysRemaining,
       };
     });
 
