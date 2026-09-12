@@ -118,8 +118,9 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("[POST /api/auth/login]", error);
+    const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { error: "An error occurred during login" },
+      { error: "An error occurred during login", details: message },
       { status: 500 }
     );
   }
