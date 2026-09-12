@@ -16,14 +16,17 @@ import {
   ChevronRight,
   ShieldCheck,
   Settings,
+  X,
 } from "lucide-react";
 
 interface SidebarProps {
   userRole?: string;
   userName?: string;
+  isMobile?: boolean;
+  onClose?: () => void;
 }
 
-export function Sidebar({ userRole = "STAFF" }: SidebarProps) {
+export function Sidebar({ userRole = "STAFF", isMobile = false, onClose }: SidebarProps) {
   const pathname = usePathname();
 
   const dashboardHref = userRole === "STAFF" ? "/staff" : "/dashboard";
@@ -84,20 +87,37 @@ export function Sidebar({ userRole = "STAFF" }: SidebarProps) {
   );
 
   return (
-    <aside className="w-64 bg-[#111316] border-r border-[#252830] flex flex-col shrink-0 min-h-screen">
+    <aside
+      className={`w-64 bg-[#111316] border-r border-[#252830] flex flex-col shrink-0 ${
+        isMobile ? "h-full w-full" : "min-h-screen"
+      }`}
+    >
       {/* Brand Header */}
-      <div className="p-5 border-b border-[#252830] flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
-          <Dumbbell className="w-5 h-5" />
+      <div className="p-5 border-b border-[#252830] flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+            <Dumbbell className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-base font-bold font-display text-white tracking-wider leading-tight">
+              BSF THE GYM
+            </h1>
+            <p className="text-[11px] text-gray-500 tracking-tight">
+              Gotri-Sevasi Rd, Vadodara
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-base font-bold font-display text-white tracking-wider leading-tight">
-            BSF THE GYM
-          </h1>
-          <p className="text-[11px] text-gray-500 tracking-tight">
-            Gotri-Sevasi Rd, Vadodara
-          </p>
-        </div>
+
+        {isMobile && onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#17191E] transition-colors"
+            aria-label="Close navigation menu"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       {/* Nav Items */}
@@ -105,13 +125,14 @@ export function Sidebar({ userRole = "STAFF" }: SidebarProps) {
         {allowedNav.map((item) => {
           const isActive =
             pathname === item.href ||
-            (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            (item.href !== "/dashboard" && item.href !== "/staff" && pathname.startsWith(item.href));
           const Icon = item.icon;
 
           return (
             <Link
               key={item.name}
               href={item.href}
+              onClick={() => onClose?.()}
               className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-all group ${
                 isActive
                   ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"

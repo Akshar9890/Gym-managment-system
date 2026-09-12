@@ -4,7 +4,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut, User, ShieldCheck } from "lucide-react";
+import { LogOut, User, ShieldCheck, Menu } from "lucide-react";
 
 interface HeaderProps {
   user: {
@@ -14,9 +14,10 @@ interface HeaderProps {
     role: string;
     profilePhoto?: string | null;
   };
+  onMenuToggle?: () => void;
 }
 
-export function Header({ user }: HeaderProps) {
+export function Header({ user, onMenuToggle }: HeaderProps) {
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -40,8 +41,18 @@ export function Header({ user }: HeaderProps) {
   }[user.role] || "bg-gray-500/10 text-gray-400";
 
   return (
-    <header className="h-16 bg-[#111316] border-b border-[#252830] px-6 flex items-center justify-between sticky top-0 z-30">
-      <div className="flex items-center gap-2">
+    <header className="h-16 bg-[#111316] border-b border-[#252830] px-3.5 sm:px-6 flex items-center justify-between sticky top-0 z-30">
+      <div className="flex items-center gap-2 sm:gap-3">
+        {onMenuToggle && (
+          <button
+            type="button"
+            onClick={onMenuToggle}
+            className="lg:hidden p-2 -ml-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#17191E] transition-colors"
+            aria-label="Toggle navigation menu"
+          >
+            <Menu className="w-5 h-5 text-amber-400" />
+          </button>
+        )}
         <span className="text-xs text-gray-500 hidden sm:inline">BSF Portal</span>
         <span className="text-gray-700 hidden sm:inline">•</span>
         <span className="text-xs text-gray-400 font-mono">Vadodara Center</span>
