@@ -559,7 +559,8 @@ export function PaymentVerificationClient({ currentUserId }: { currentUserId: st
             </div>
 
             <div className="p-4 flex items-center justify-center bg-black/40 max-h-[75vh] overflow-auto">
-              {selectedProofUrl.toLowerCase().endsWith(".pdf") ? (
+              {selectedProofUrl.toLowerCase().endsWith(".pdf") ||
+              selectedProofUrl.startsWith("data:application/pdf") ? (
                 <iframe
                   src={selectedProofUrl}
                   className="w-full h-[65vh] rounded-lg border border-slate-800"

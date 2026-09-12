@@ -42,6 +42,56 @@ export function PaymentProofUploader({
     };
   }, [cameraStream]);
 
+  async function compressImage(file: File): Promise<File> {
+    if (!file.type.startsWith("image/") || file.type === "image/svg+xml") {
+      return file;
+    }
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const maxDim = 1400;
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return resolve(file);
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob || blob.size >= file.size) {
+              resolve(file);
+            } else {
+              resolve(
+                new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), {
+                  type: "image/jpeg",
+                })
+              );
+            }
+          },
+          "image/jpeg",
+          0.82
+        );
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(file);
+      };
+      img.src = url;
+    });
+  }
+
   const handleFileUpload = async (file: File) => {
     if (file.size > 10 * 1024 * 1024) {
       setError("File size exceeds 10MB limit");
@@ -58,8 +108,9 @@ export function PaymentProofUploader({
     setIsUploading(true);
 
     try {
+      const fileToUpload = await compressImage(file);
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", fileToUpload);
 
       const res = await fetch("/api/payments/proof-upload", {
         method: "POST",
@@ -147,7 +198,11 @@ export function PaymentProofUploader({
     }
   };
 
-  const isPdf = value && value.toLowerCase().endsWith(".pdf");
+  const isPdf = Boolean(
+    value &&
+      (value.toLowerCase().endsWith(".pdf") ||
+        value.startsWith("data:application/pdf"))
+  );
 
   return (
     <div className="space-y-3">
