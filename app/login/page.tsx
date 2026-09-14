@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { startAuthentication } from "@simplewebauthn/browser";
+import { Fingerprint, Loader2 } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -9,6 +11,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -35,6 +38,55 @@ export default function LoginPage() {
       setError("Network error. Please try again.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handlePasskeyLogin() {
+    setError("");
+    setPasskeyLoading(true);
+
+    try {
+      // 1. Fetch authentication options (pass email if already entered for scoped lookup, or empty for 1-tap discoverable)
+      const optRes = await fetch("/api/auth/passkey/login-options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() || undefined }),
+      });
+
+      const options = await optRes.json();
+
+      if (!optRes.ok) {
+        throw new Error(options.error || "Failed to initialize passkey sign-in");
+      }
+
+      // 2. Trigger biometric / security key prompt on device
+      const authenticationResponse = await startAuthentication({
+        optionsJSON: options,
+      });
+
+      // 3. Verify response with server and establish session
+      const verifyRes = await fetch("/api/auth/passkey/login-verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ authenticationResponse }),
+      });
+
+      const verifyData = await verifyRes.json();
+
+      if (!verifyRes.ok) {
+        throw new Error(verifyData.error || "Passkey authentication failed");
+      }
+
+      router.push(verifyData.redirectUrl || "/dashboard");
+      router.refresh();
+    } catch (err: any) {
+      if (err.name === "NotAllowedError") {
+        // User dismissed the biometric prompt
+        return;
+      }
+      setError(err.message || "Passkey login failed. Please try again or use password.");
+    } finally {
+      setPasskeyLoading(false);
     }
   }
 
@@ -83,6 +135,37 @@ export default function LoginPage() {
             </div>
           )}
 
+          {/* 1-Tap Passkey / Face ID Button */}
+          <button
+            type="button"
+            onClick={handlePasskeyLogin}
+            disabled={passkeyLoading || loading}
+            className="w-full py-3 px-4 bg-[#111316] hover:bg-[#1C1F26] border border-amber-500/40 hover:border-amber-400 text-white font-semibold rounded-lg transition-all text-sm flex items-center justify-center gap-2.5 shadow-lg shadow-amber-500/5 group cursor-pointer disabled:opacity-50 mb-6"
+          >
+            {passkeyLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+            ) : (
+              <Fingerprint className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+            )}
+            <span>
+              {passkeyLoading
+                ? "Verifying Biometrics..."
+                : "Sign in with Passkey / Face ID"}
+            </span>
+          </button>
+
+          {/* OR divider */}
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-[#252830]" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-[#17191E] px-3 text-gray-500 font-medium">
+                Or sign in with password
+              </span>
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label
@@ -124,35 +207,16 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={loading}
-              className="w-full py-3 px-4 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
+              disabled={loading || passkeyLoading}
+              className="w-full py-3 px-4 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold rounded-lg transition-colors text-sm flex items-center justify-center gap-2 cursor-pointer"
             >
               {loading ? (
                 <>
-                  <svg
-                    className="animate-spin h-4 w-4"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                    />
-                  </svg>
-                  Signing in…
+                  <Loader2 className="animate-spin h-4 w-4" />
+                  <span>Signing in…</span>
                 </>
               ) : (
-                "Sign in"
+                "Sign in with Password"
               )}
             </button>
           </form>

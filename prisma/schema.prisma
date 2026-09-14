@@ -114,9 +114,32 @@ model User {
   membershipsCreated  Membership[] @relation("MembershipCreatedBy")
   membershipsVerified Membership[] @relation("MembershipVerifiedBy")
   membersCreated      Member[]     @relation("MemberCreatedBy")
+  passkeys            Passkey[]
 
   @@index([email])
   @@map("users")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PASSKEY (WebAuthn credentials for fast biometric sign-in)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Passkey {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialId String    @unique
+  publicKey    Bytes
+  counter      BigInt    @default(0)
+  deviceType   String?
+  backedUp     Boolean   @default(false)
+  transports   String?
+  name         String?
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+
+  @@index([userId])
+  @@map("passkeys")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

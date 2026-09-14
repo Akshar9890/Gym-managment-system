@@ -21,6 +21,7 @@ import {
   Save,
   KeyRound,
 } from "lucide-react";
+import { PasskeyManager } from "@/components/settings/PasskeyManager";
 
 export interface UserSettingsProfile {
   id: string;
@@ -532,6 +533,9 @@ export function SettingsClient({ initialUser }: SettingsClientProps) {
               </div>
             </form>
           </div>
+
+          {/* Passkey & Biometric Sign-in */}
+          <PasskeyManager />
         </div>
       </div>
     </div>
