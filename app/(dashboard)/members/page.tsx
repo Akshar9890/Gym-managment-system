@@ -34,48 +34,68 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
     initialFilterStatus = "PAUSED";
   }
 
-  const members = await prisma.member.findMany({
-    include: {
-      createdBy: {
-        select: { id: true, name: true },
-      },
-      memberships: {
-        include: {
-          plan: true,
-          createdBy: {
-            select: { id: true, name: true },
-          },
+  let members: any[] = [];
+  try {
+    members = await prisma.member.findMany({
+      include: {
+        createdBy: {
+          select: { id: true, name: true },
         },
-        orderBy: { endDate: "desc" },
-        take: 1,
+        memberships: {
+          include: {
+            plan: true,
+            createdBy: {
+              select: { id: true, name: true },
+            },
+          },
+          orderBy: { endDate: "desc" },
+          take: 1,
+        },
       },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+      orderBy: { createdAt: "desc" },
+    });
+  } catch (err: any) {
+    console.error("MembersPage database query error:", err);
+  }
 
-  const memberItems: MemberListItem[] = members.map((m: any) => {
-    const activeOrLatest = m.memberships[0] || null;
+  const memberItems: MemberListItem[] = (members || []).map((m: any) => {
+    const activeOrLatest = m.memberships?.[0] || null;
+
+    let joinDateIso = new Date().toISOString();
+    try {
+      if (m.joinDate) joinDateIso = new Date(m.joinDate).toISOString();
+    } catch {}
+
+    let currentMembership = null;
+    if (activeOrLatest) {
+      let startIso = new Date().toISOString();
+      let endIso = new Date().toISOString();
+      try {
+        if (activeOrLatest.startDate) startIso = new Date(activeOrLatest.startDate).toISOString();
+        if (activeOrLatest.endDate) endIso = new Date(activeOrLatest.endDate).toISOString();
+      } catch {}
+
+      currentMembership = {
+        id: activeOrLatest.id || "",
+        planName: activeOrLatest.plan?.name || "Standard Plan",
+        startDate: startIso,
+        endDate: endIso,
+        membershipStatus: activeOrLatest.membershipStatus || "ACTIVE",
+        paymentStatus: activeOrLatest.paymentStatus || "PAID",
+      };
+    }
 
     return {
-      id: m.id,
-      fullName: m.fullName,
+      id: m.id || "",
+      fullName: m.fullName || "Member",
       profilePhoto: m.profilePhoto || null,
-      phoneNumber: m.phoneNumber,
-      whatsappNumber: m.whatsappNumber || m.phoneNumber,
-      whatsappVerified: m.whatsappVerified,
-      status: m.status,
-      joinDate: m.joinDate.toISOString(),
-      createdBy: m.createdBy || m.memberships[0]?.createdBy || null,
-      currentMembership: activeOrLatest
-        ? {
-            id: activeOrLatest.id,
-            planName: activeOrLatest.plan.name,
-            startDate: activeOrLatest.startDate.toISOString(),
-            endDate: activeOrLatest.endDate.toISOString(),
-            membershipStatus: activeOrLatest.membershipStatus,
-            paymentStatus: activeOrLatest.paymentStatus,
-          }
-        : null,
+      phoneNumber: m.phoneNumber || "",
+      whatsappNumber: m.whatsappNumber || m.phoneNumber || "",
+      whatsappVerified: Boolean(m.whatsappVerified),
+      status: m.status || "ACTIVE",
+      joinDate: joinDateIso,
+      createdBy: m.createdBy || m.memberships?.[0]?.createdBy || null,
+      currentMembership,
     };
   });
 

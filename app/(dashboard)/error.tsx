@@ -23,11 +23,17 @@ export default function DashboardErrorBoundary({
         </div>
 
         <h2 className="text-xl font-bold font-display text-white mb-2">
-          Unable to Load Dashboard
+          Unable to Load Content
         </h2>
         <p className="text-xs text-gray-400 mb-6 leading-relaxed">
-          A temporary connection delay occurred while loading recent metrics. Your data is completely safe.
+          A temporary connection delay or rendering issue occurred. Your data is completely safe.
         </p>
+
+        {error?.message && (
+          <div className="mb-4 px-3 py-2 rounded-lg bg-[#0E1013] border border-red-500/20 text-xs font-mono text-red-400 text-left overflow-x-auto max-h-32">
+            {error.message}
+          </div>
+        )}
 
         {error?.digest && (
           <div className="mb-6 px-3 py-2 rounded-lg bg-[#0E1013] border border-[#252830] text-[11px] font-mono text-gray-500 truncate">
@@ -44,11 +50,11 @@ export default function DashboardErrorBoundary({
             <span>Try Again</span>
           </button>
           <Link
-            href="/members"
+            href="/dashboard"
             className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#20242D] hover:bg-[#2A2F3B] text-gray-200 border border-[#2E3340] text-xs font-medium transition-all"
           >
             <Users className="w-4 h-4 text-amber-400" />
-            <span>Go to Members</span>
+            <span>Go to Dashboard</span>
           </Link>
         </div>
       </div>

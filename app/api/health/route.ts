@@ -18,6 +18,10 @@ export async function GET() {
   let dbStatus = "unknown";
   let dbError = null;
   let userCount = -1;
+  let memberCount = -1;
+  let membersError = null;
+  let dashboardQueriesOk = false;
+  let dashboardError = null;
 
   try {
     const users = await prisma.user.count();
@@ -28,8 +32,45 @@ export async function GET() {
     dbError = err instanceof Error ? err.message : String(err);
   }
 
+  try {
+    memberCount = await prisma.member.count();
+  } catch (err) {
+    membersError = err instanceof Error ? err.message : String(err);
+  }
+
+  try {
+    const m = await prisma.member.findMany({
+      include: {
+        createdBy: { select: { id: true, name: true } },
+        memberships: {
+          include: {
+            plan: true,
+            createdBy: { select: { id: true, name: true } },
+          },
+          orderBy: { endDate: "desc" },
+          take: 1,
+        },
+      },
+      take: 5,
+    });
+    dashboardQueriesOk = true;
+  } catch (err) {
+    dashboardError = err instanceof Error ? err.message : String(err);
+  }
+
   return NextResponse.json({
     status: dbStatus === "connected" ? "healthy" : "degraded",
     db: dbStatus,
+    userCount,
+    memberCount,
+    dbError,
+    membersError,
+    dashboardQueriesOk,
+    dashboardError,
+    envCheck: {
+      hasDatabaseUrl: envCheck.hasDatabaseUrl,
+      databaseHost: envCheck.databaseHost,
+      nodeEnv: envCheck.nodeEnv,
+    },
   });
 }
