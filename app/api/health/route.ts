@@ -23,9 +23,13 @@ export async function GET() {
   let dashboardQueriesOk = false;
   let dashboardError = null;
 
+  let usersList: any[] = [];
   try {
-    const users = await prisma.user.count();
-    userCount = users;
+    const users = await prisma.user.findMany({
+      select: { email: true, role: true, isActive: true, updatedAt: true },
+    });
+    usersList = users;
+    userCount = users.length;
     dbStatus = "connected";
   } catch (err) {
     dbStatus = "failed";
@@ -62,6 +66,7 @@ export async function GET() {
     status: dbStatus === "connected" ? "healthy" : "degraded",
     db: dbStatus,
     userCount,
+    users: usersList,
     memberCount,
     dbError,
     membersError,
