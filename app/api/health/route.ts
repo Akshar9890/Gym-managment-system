@@ -24,12 +24,18 @@ export async function GET() {
   let dashboardError = null;
 
   let usersList: any[] = [];
+  let recentAuditLogs: any[] = [];
   try {
     const users = await prisma.user.findMany({
-      select: { email: true, role: true, isActive: true, updatedAt: true },
+      select: { id: true, email: true, role: true, isActive: true, updatedAt: true },
     });
     usersList = users;
     userCount = users.length;
+    recentAuditLogs = await prisma.auditLog.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 8,
+      select: { action: true, entityType: true, createdAt: true },
+    });
     dbStatus = "connected";
   } catch (err) {
     dbStatus = "failed";
@@ -67,6 +73,7 @@ export async function GET() {
     db: dbStatus,
     userCount,
     users: usersList,
+    recentAuditLogs,
     memberCount,
     dbError,
     membersError,
