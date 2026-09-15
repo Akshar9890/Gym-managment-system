@@ -63,7 +63,7 @@ export default async function StaffDashboardPage() {
   const todayPayments = await prisma.payment.findMany({
     where: {
       receivedById: user.id,
-      paymentStatus: "PAID",
+      paymentStatus: { in: ["PAID", "VERIFIED"] },
       paidAt: { gte: todayMidnight, lte: todayEnd },
     },
     select: { amount: true },
@@ -93,7 +93,7 @@ export default async function StaffDashboardPage() {
   const monthPayments = await prisma.payment.findMany({
     where: {
       receivedById: user.id,
-      paymentStatus: "PAID",
+      paymentStatus: { in: ["PAID", "VERIFIED"] },
       paidAt: { gte: monthStart, lte: monthEnd },
     },
     select: { amount: true },

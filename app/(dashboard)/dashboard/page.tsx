@@ -36,6 +36,7 @@ export default async function DashboardPage() {
     pendingPaymentsCount,
     upcomingMemberships,
     pendingApprovals,
+    membershipsWithoutPayment,
   ] = await Promise.all([
     // Total members
     prisma.member.count().catch((e: any) => {
@@ -70,13 +71,16 @@ export default async function DashboardPage() {
         return 0;
       }),
 
-    // Revenue MTD
+    // Revenue MTD from Payment records
     prisma.payment
       .aggregate({
         _sum: { amount: true },
         where: {
-          createdAt: { gte: monthStart },
-          paymentStatus: { in: ["PAID", "PARTIAL"] },
+          OR: [
+            { paidAt: { gte: monthStart } },
+            { createdAt: { gte: monthStart } },
+          ],
+          paymentStatus: { in: ["PAID", "VERIFIED", "PARTIAL"] },
         },
       })
       .catch((e: any) => {
@@ -131,6 +135,21 @@ export default async function DashboardPage() {
         console.error("Dashboard pendingApprovals aggregate error:", e);
         return { _count: { id: 0 }, _sum: { amount: null } };
       }),
+
+    // Paid memberships created this month without separate payment records (ensures MTD counts all paid memberships)
+    prisma.membership
+      .findMany({
+        where: {
+          createdAt: { gte: monthStart },
+          paymentStatus: { in: ["PAID", "VERIFIED"] },
+          payments: { none: {} },
+        },
+        select: { finalAmount: true },
+      })
+      .catch((e: any) => {
+        console.error("Dashboard membershipsWithoutPayment query error:", e);
+        return [];
+      }),
   ]);
 
   const pendingApprovalsCount = pendingApprovals?._count?.id ?? 0;
@@ -157,11 +176,18 @@ export default async function DashboardPage() {
     }
   }
 
+  const paymentRevenue = Number(revenueMtd?._sum?.amount ?? 0);
+  const standaloneMembershipRevenue = (membershipsWithoutPayment || []).reduce(
+    (sum: number, m: any) => sum + Number(m.finalAmount ?? 0),
+    0
+  );
+  const totalMtdRevenue = paymentRevenue + standaloneMembershipRevenue;
+
   const formattedMtdRevenue = new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 0,
-  }).format(Number(revenueMtd?._sum?.amount ?? 0));
+  }).format(totalMtdRevenue);
 
   // Transform upcoming expirations (exclude memberships where member has already paid advance renewal)
   const expirationRows: ExpirationRow[] = (upcomingMemberships || [])

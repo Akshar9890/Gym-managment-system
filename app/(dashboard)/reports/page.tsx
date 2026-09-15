@@ -23,8 +23,8 @@ export default async function ReportsPage() {
       },
     }),
     prisma.payment.findMany({
-      where: { paymentStatus: { in: ["PAID", "PARTIAL"] } },
-      select: { amount: true, paymentMethod: true, createdAt: true },
+      where: { paymentStatus: { in: ["PAID", "PARTIAL", "VERIFIED"] } },
+      select: { amount: true, paymentMethod: true, createdAt: true, paidAt: true },
     }),
   ]);
 
@@ -52,7 +52,10 @@ export default async function ReportsPage() {
     const label = format(d, "MMM yyyy");
 
     const monthSum = totalPayments
-      .filter((p: any) => new Date(p.createdAt) >= start && new Date(p.createdAt) <= end)
+      .filter((p: any) => {
+        const paymentDate = new Date(p.paidAt || p.createdAt);
+        return paymentDate >= start && paymentDate <= end;
+      })
       .reduce((sum: number, p: any) => sum + Number(p.amount), 0);
 
     monthlyRevenue.push({ month: label, revenue: monthSum });
