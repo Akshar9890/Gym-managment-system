@@ -1,9 +1,8 @@
 import React, { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
-import { Printer, CheckCircle2, Dumbbell, Download, Share2, Copy, Check, ExternalLink, FileText, MessageSquare } from "lucide-react";
+import { Printer, CheckCircle2, Dumbbell, Download, Share2, Copy, Check, ExternalLink, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { generateReceiptPDF } from "@/lib/receipt-pdf";
-import { sendReceiptViaWhatsApp, normalizeIndianWhatsAppNumber } from "@/lib/receipt-whatsapp";
 
 export interface ReceiptData {
   receiptNumber: string;
@@ -17,7 +16,6 @@ export interface ReceiptData {
   member: {
     fullName: string;
     phoneNumber: string;
-    whatsappNumber?: string | null;
     email?: string | null;
   };
   membership: {
@@ -66,10 +64,57 @@ export function ReceiptModal({ isOpen, onClose, receipt }: ReceiptModalProps) {
     setTimeout(() => setNotice(null), 3500);
   }
 
-  function handleSharePDFWhatsApp() {
+  async function handleSharePDFWhatsApp() {
     if (!receipt) return;
-    const normalizedPhone = sendReceiptViaWhatsApp(receipt);
-    setNotice(`Direct WhatsApp opened for +${normalizedPhone}! Receipt PDF downloaded to your device.`);
+    const doc = generateReceiptPDF(receipt);
+    const pdfBlob = doc.output("blob");
+    const fileName = `BSF-Receipt-${receipt.receiptNumber}.pdf`;
+    const pdfFile = new File([pdfBlob], fileName, { type: "application/pdf" });
+
+    const rawPhone = receipt.member.phoneNumber;
+    const digitsOnly = rawPhone.replace(/\D/g, "");
+    const normalizedPhone =
+      digitsOnly.length === 10
+        ? `91${digitsOnly}`
+        : digitsOnly.length === 12 && digitsOnly.startsWith("91")
+        ? digitsOnly
+        : `91${digitsOnly.slice(-10)}`;
+
+    // If device supports Web Share API with files (Android, iOS, iPadOS, Safari/Chrome on mobile)
+    if (typeof navigator !== "undefined" && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+      try {
+        await navigator.share({
+          files: [pdfFile],
+          title: `BSF Gym Receipt #${receipt.receiptNumber}`,
+          text: `Official payment receipt for ${receipt.member.fullName} (${receipt.membership.planName} Membership).`,
+        });
+        return;
+      } catch (err: any) {
+        if (err.name === "AbortError") return;
+        console.warn("navigator.share error", err);
+      }
+    }
+
+    // Fallback on desktop browsers:
+    // 1. Download the PDF file directly to downloads folder
+    doc.save(fileName);
+
+    // 2. Open WhatsApp Web to member's chat
+    const msg =
+      `*BSF THE GYM — Payment Receipt #${receipt.receiptNumber}* 🧾\n` +
+      `_Gotri-Sevasi Road, Vadodara, Gujarat_\n\n` +
+      `Hi *${receipt.member.fullName}*,\n` +
+      `Here is your official receipt for your *${receipt.membership.planName}* membership.\n\n` +
+      `• *Amount Paid:* INR ${receipt.amount.toLocaleString("en-IN")} (${receipt.paymentMethod})\n` +
+      `• *Validity:* ${formattedStart} to ${formattedEnd}\n` +
+      `• *Balance Due:* INR ${Math.max(0, receipt.membership.balanceDue).toLocaleString("en-IN")}\n\n` +
+      `*(Your receipt PDF has been downloaded. Please find the attached document.)*\n\n` +
+      `Thank you for working out with BSF THE GYM! Stay fit, stay strong. 💪🏋️‍♂️`;
+
+    const waUrl = `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(msg)}`;
+    window.open(waUrl, "_blank", "noopener,noreferrer");
+
+    setNotice("PDF downloaded! Attach the downloaded file in the opened WhatsApp chat.");
     setTimeout(() => setNotice(null), 6000);
   }
 
@@ -280,10 +325,10 @@ export function ReceiptModal({ isOpen, onClose, receipt }: ReceiptModalProps) {
               type="button"
               onClick={handleSharePDFWhatsApp}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold shadow-lg shadow-emerald-900/20 transition-all hover:scale-[1.02]"
-              title={`Directly open WhatsApp chat with ${receipt.member.fullName}`}
+              title="Share Receipt PDF to WhatsApp"
             >
-              <MessageSquare className="w-3.5 h-3.5" />
-              <span>Send to WhatsApp ({receipt.member.whatsappNumber || receipt.member.phoneNumber})</span>
+              <Share2 className="w-3.5 h-3.5" />
+              <span>Share PDF to WhatsApp</span>
             </button>
 
             <button

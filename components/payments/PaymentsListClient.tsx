@@ -6,10 +6,9 @@
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
-import { Search, Printer, ArrowUpDown, CreditCard, ChevronRight, IndianRupee, MessageSquare } from "lucide-react";
+import { Search, Printer, ArrowUpDown, CreditCard, ChevronRight, IndianRupee } from "lucide-react";
 import { StatusBadge } from "@/components/ui/Badge";
 import { ReceiptModal, ReceiptData } from "@/components/payments/ReceiptModal";
-import { sendReceiptViaWhatsApp } from "@/lib/receipt-whatsapp";
 
 export interface PaymentListItem {
   id: string;
@@ -25,7 +24,6 @@ export interface PaymentListItem {
     id: string;
     fullName: string;
     phoneNumber: string;
-    whatsappNumber?: string | null;
     email?: string | null;
   };
   membership: {
@@ -109,7 +107,6 @@ export function PaymentsListClient({
       member: {
         fullName: p.member.fullName,
         phoneNumber: p.member.phoneNumber,
-        whatsappNumber: p.member.whatsappNumber,
         email: p.member.email,
       },
       membership: {
@@ -127,40 +124,6 @@ export function PaymentsListClient({
       receivedBy: p.receivedBy,
     };
     setSelectedReceipt(receipt);
-  }
-
-  function handleSendWhatsAppDirect(p: PaymentListItem) {
-    const isPending = p.paymentStatus === "PENDING_VERIFICATION";
-    const receipt: ReceiptData = {
-      receiptNumber: p.receiptNumber,
-      paymentDate: p.createdAt,
-      amount: p.amount,
-      paymentMethod: p.paymentMethod,
-      paymentStatus: p.paymentStatus,
-      isPending,
-      isVerified: p.paymentStatus === "VERIFIED" || p.paymentStatus === "PAID",
-      notes: p.notes,
-      member: {
-        fullName: p.member.fullName,
-        phoneNumber: p.member.phoneNumber,
-        whatsappNumber: p.member.whatsappNumber,
-        email: p.member.email,
-      },
-      membership: {
-        membershipReference: p.membership.membershipReference,
-        planName: p.membership.planName,
-        startDate: p.membership.startDate,
-        endDate: p.membership.endDate,
-        priceAtPurchase: p.membership.priceAtPurchase,
-        discount: p.membership.discount,
-        finalAmount: p.membership.finalAmount,
-        paymentStatus: p.membership.paymentStatus,
-        totalPaid: p.amount,
-        balanceDue: Math.max(0, p.membership.finalAmount - p.amount),
-      },
-      receivedBy: p.receivedBy,
-    };
-    sendReceiptViaWhatsApp(receipt);
   }
 
   const totalCollected = useMemo(() => {
@@ -316,15 +279,7 @@ export function PaymentsListClient({
                   <td className="py-3.5 px-4 uppercase text-gray-300 font-medium">
                     {p.paymentMethod}
                   </td>
-                  <td className="py-3.5 px-5 text-right space-x-2 whitespace-nowrap">
-                    <button
-                      onClick={() => handleSendWhatsAppDirect(p)}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-950/50 hover:bg-emerald-900/80 text-emerald-400 hover:text-emerald-300 border border-emerald-500/40 transition-colors"
-                      title={`Open WhatsApp chat with ${p.member.fullName} (+91 ${p.member.whatsappNumber || p.member.phoneNumber}) and download receipt PDF`}
-                    >
-                      <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>WhatsApp</span>
-                    </button>
+                  <td className="py-3.5 px-5 text-right">
                     <button
                       onClick={() => handleOpenReceipt(p)}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#111316] hover:bg-[#252830] text-gray-200 hover:text-white border border-[#252830] transition-colors"
@@ -383,23 +338,13 @@ export function PaymentsListClient({
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => handleSendWhatsAppDirect(p)}
-                  className="py-2 bg-emerald-950/50 hover:bg-emerald-900/80 text-emerald-400 hover:text-emerald-300 rounded-lg border border-emerald-500/40 text-xs font-medium flex items-center justify-center gap-1.5 transition-colors"
-                  title={`Open WhatsApp chat with ${p.member.fullName}`}
-                >
-                  <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>WhatsApp</span>
-                </button>
-                <button
-                  onClick={() => handleOpenReceipt(p)}
-                  className="py-2 bg-[#111316] hover:bg-[#252830] text-gray-300 hover:text-white rounded-lg border border-[#252830] text-xs font-medium flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <Printer className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Receipt</span>
-                </button>
-              </div>
+              <button
+                onClick={() => handleOpenReceipt(p)}
+                className="w-full py-2 bg-[#111316] hover:bg-[#252830] text-gray-300 hover:text-white rounded-lg border border-[#252830] text-xs font-medium flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <Printer className="w-3.5 h-3.5 text-amber-400" />
+                <span>View & Print Receipt</span>
+              </button>
             </div>
           ))
         )}

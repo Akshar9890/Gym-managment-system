@@ -43,7 +43,6 @@ export default async function PaymentsPage({ searchParams }: PaymentsPageProps) 
       id: p.member.id,
       fullName: p.member.fullName,
       phoneNumber: p.member.phoneNumber,
-      whatsappNumber: p.member.whatsappNumber,
       email: p.member.email,
     },
     membership: {

@@ -29,7 +29,6 @@ import { RecordPaymentModal } from "@/components/payments/RecordPaymentModal";
 import { ReceiptModal, ReceiptData } from "@/components/payments/ReceiptModal";
 import { SendReminderModal } from "@/components/notifications/SendReminderModal";
 import { compressAndResizeImage } from "@/lib/image-util";
-import { sendReceiptViaWhatsApp } from "@/lib/receipt-whatsapp";
 
 interface MemberData {
   id: string;
@@ -220,7 +219,6 @@ export function MemberProfileClient({ member }: MemberProfileClientProps) {
       member: {
         fullName: member.fullName,
         phoneNumber: member.phoneNumber,
-        whatsappNumber: member.whatsappNumber,
         email: member.email,
       },
       membership: {
@@ -237,44 +235,6 @@ export function MemberProfileClient({ member }: MemberProfileClientProps) {
     };
 
     setSelectedReceipt(receipt);
-  }
-
-  function handleSendWhatsAppDirect(payment: any) {
-    const totalPaid = member.memberships
-      .find((m) => m.payments.some((p) => p.id === payment.id))
-      ?.payments.reduce((sum, p) => sum + p.amount, 0) || payment.amount;
-
-    const receipt: ReceiptData = {
-      receiptNumber: payment.receiptNumber,
-      paymentDate: payment.createdAt,
-      amount: payment.amount,
-      paymentMethod: payment.paymentMethod,
-      notes: payment.notes,
-      member: {
-        fullName: member.fullName,
-        phoneNumber: member.phoneNumber,
-        whatsappNumber: member.whatsappNumber,
-        email: member.email,
-      },
-      membership: {
-        planName: payment.membershipPlanName,
-        startDate: payment.membershipStartDate,
-        endDate: payment.membershipEndDate,
-        priceAtPurchase: payment.priceAtPurchase,
-        discount: payment.discount,
-        finalAmount: payment.finalAmount,
-        paymentStatus: payment.membershipPaymentStatus,
-        totalPaid,
-        balanceDue: payment.finalAmount - totalPaid,
-      },
-    };
-
-    const targetPhone = sendReceiptViaWhatsApp(receipt);
-    setActionNotice({
-      success: true,
-      msg: `Direct WhatsApp opened for ${member.fullName} (+${targetPhone}) & PDF downloaded!`,
-    });
-    setTimeout(() => setActionNotice(null), 5000);
   }
 
   return (
@@ -584,18 +544,10 @@ export function MemberProfileClient({ member }: MemberProfileClientProps) {
                             <span className="text-gray-500">—</span>
                           )}
                         </td>
-                        <td className="py-3 px-4 text-right space-x-2 whitespace-nowrap">
-                          <button
-                            onClick={() => handleSendWhatsAppDirect(p)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-950/50 hover:bg-emerald-900/80 text-emerald-400 hover:text-emerald-300 border border-emerald-500/40 transition-colors text-xs font-medium"
-                            title={`Open WhatsApp chat with ${member.fullName} (+91 ${member.whatsappNumber || member.phoneNumber}) and download receipt PDF`}
-                          >
-                            <MessageSquare className="w-3 h-3 text-emerald-400" />
-                            <span>WhatsApp</span>
-                          </button>
+                        <td className="py-3 px-4 text-right">
                           <button
                             onClick={() => handleOpenReceipt(p)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[#111316] hover:bg-[#252830] text-gray-300 hover:text-white border border-[#252830] transition-colors text-xs font-medium"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[#111316] hover:bg-[#252830] text-gray-300 hover:text-white border border-[#252830] transition-colors"
                           >
                             <Printer className="w-3 h-3 text-amber-400" />
                             <span>Receipt</span>
