@@ -42,6 +42,20 @@ export async function GET() {
     dbError = err instanceof Error ? err.message : String(err);
   }
 
+  let adminPasswordIsDefault: boolean | null = null;
+  try {
+    const adminUser = await prisma.user.findFirst({
+      where: { email: "admin@gmail.com" },
+      select: { passwordHash: true },
+    });
+    if (adminUser) {
+      const bcrypt = (await import("bcryptjs")).default;
+      adminPasswordIsDefault = await bcrypt.compare("BSFAdmin@2024!", adminUser.passwordHash);
+    }
+  } catch (err) {
+    console.error("Check default password error:", err);
+  }
+
   try {
     memberCount = await prisma.member.count();
   } catch (err) {
@@ -73,6 +87,7 @@ export async function GET() {
     db: dbStatus,
     userCount,
     users: usersList,
+    adminPasswordIsDefault,
     recentAuditLogs,
     memberCount,
     dbError,
