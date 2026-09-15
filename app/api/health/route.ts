@@ -23,37 +23,13 @@ export async function GET() {
   let dashboardQueriesOk = false;
   let dashboardError = null;
 
-  let usersList: any[] = [];
-  let recentAuditLogs: any[] = [];
   try {
-    const users = await prisma.user.findMany({
-      select: { id: true, email: true, role: true, isActive: true, updatedAt: true },
-    });
-    usersList = users;
-    userCount = users.length;
-    recentAuditLogs = await prisma.auditLog.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 8,
-      select: { action: true, entityType: true, createdAt: true },
-    });
+    const users = await prisma.user.count();
+    userCount = users;
     dbStatus = "connected";
   } catch (err) {
     dbStatus = "failed";
     dbError = err instanceof Error ? err.message : String(err);
-  }
-
-  let adminPasswordIsDefault: boolean | null = null;
-  try {
-    const adminUser = await prisma.user.findFirst({
-      where: { email: "admin@gmail.com" },
-      select: { passwordHash: true },
-    });
-    if (adminUser) {
-      const bcrypt = (await import("bcryptjs")).default;
-      adminPasswordIsDefault = await bcrypt.compare("BSFAdmin@2024!", adminUser.passwordHash);
-    }
-  } catch (err) {
-    console.error("Check default password error:", err);
   }
 
   try {
@@ -86,9 +62,6 @@ export async function GET() {
     status: dbStatus === "connected" ? "healthy" : "degraded",
     db: dbStatus,
     userCount,
-    users: usersList,
-    adminPasswordIsDefault,
-    recentAuditLogs,
     memberCount,
     dbError,
     membersError,
