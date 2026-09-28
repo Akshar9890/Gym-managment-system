@@ -43,6 +43,14 @@ export default function LoginPage() {
 
   async function handlePasskeyLogin() {
     setError("");
+
+    if (typeof window !== "undefined" && !window.PublicKeyCredential) {
+      setError(
+        "Biometric passkeys are not supported on this browser/environment. Please log in with your password."
+      );
+      return;
+    }
+
     setPasskeyLoading(true);
 
     try {
@@ -81,10 +89,12 @@ export default function LoginPage() {
       router.refresh();
     } catch (err: any) {
       if (err.name === "NotAllowedError") {
-        // User dismissed the biometric prompt
-        return;
+        setError(
+          "No passkey was found on this device, or the prompt was cancelled. Please sign in with your password first, then add Face ID / Touch ID in Settings."
+        );
+      } else {
+        setError(err.message || "Passkey login failed. Please try again or use password.");
       }
-      setError(err.message || "Passkey login failed. Please try again or use password.");
     } finally {
       setPasskeyLoading(false);
     }

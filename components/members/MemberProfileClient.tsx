@@ -1,7 +1,7 @@
 // components/members/MemberProfileClient.tsx — Full member profile view with renewal, payment, and WhatsApp actions
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format, differenceInCalendarDays } from "date-fns";
@@ -22,6 +22,8 @@ import {
   Loader2,
   FileText,
   Camera,
+  UserCheck,
+  Edit3,
 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/Badge";
 import { RenewalModal } from "@/components/members/RenewalModal";
@@ -29,6 +31,7 @@ import { RecordPaymentModal } from "@/components/payments/RecordPaymentModal";
 import { ReceiptModal, ReceiptData } from "@/components/payments/ReceiptModal";
 import { SendReminderModal } from "@/components/notifications/SendReminderModal";
 import { compressAndResizeImage } from "@/lib/image-util";
+import { useOfflineQueue } from "@/lib/offline/useOfflineQueue";
 
 interface MemberData {
   id: string;
@@ -148,6 +151,134 @@ export function MemberProfileClient({ member }: MemberProfileClientProps) {
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isReminderOpen, setIsReminderOpen] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<ReceiptData | null>(null);
+
+  // Offline queue & Attendance check-in state
+  const { enqueue, queue } = useOfflineQueue();
+  const [isCheckedInToday, setIsCheckedInToday] = useState(false);
+  const [isCheckInLoading, setIsCheckInLoading] = useState(false);
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [notesText, setNotesText] = useState(member.notes || "");
+  const [isNotesSaving, setIsNotesSaving] = useState(false);
+  const [notesPendingSync, setNotesPendingSync] = useState(false);
+
+  // Track offline queued check-in and notes for this member
+  useEffect(() => {
+    const hasQueuedCheckIn = queue.some(
+      (q) => q.type === "CHECK_IN" && q.payload?.memberId === member.id
+    );
+    if (hasQueuedCheckIn) {
+      setIsCheckedInToday(true);
+    }
+    const hasQueuedNote = queue.some(
+      (q) => q.type === "MEMBER_NOTE" && q.payload?.notes !== undefined && q.url.includes(member.id)
+    );
+    setNotesPendingSync(hasQueuedNote);
+  }, [queue, member.id]);
+
+  // Check today's check-in status from server when online
+  useEffect(() => {
+    if (typeof window === "undefined" || !navigator.onLine) return;
+    const checkServerStatus = async () => {
+      try {
+        const res = await fetch(`/api/check-ins?memberId=${member.id}`);
+        const data = await res.json();
+        if (data.success && data.data && data.data.length > 0) {
+          setIsCheckedInToday(true);
+        }
+      } catch {
+        // ignore offline errors
+      }
+    };
+    checkServerStatus();
+  }, [member.id]);
+
+  async function handleCheckIn() {
+    if (isCheckedInToday || isCheckInLoading) return;
+    setIsCheckInLoading(true);
+    try {
+      setIsCheckedInToday(true);
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        await enqueue({
+          type: "CHECK_IN",
+          url: "/api/check-ins",
+          method: "POST",
+          payload: { memberId: member.id },
+          description: `Check-in: ${member.fullName}`,
+        });
+        setActionNotice({ success: true, msg: "Checked in offline (queued to sync) ✓" });
+      } else {
+        const res = await fetch("/api/check-ins", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ memberId: member.id }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setActionNotice({ success: true, msg: `${member.fullName} checked in successfully ✓` });
+        } else {
+          setActionNotice({ success: false, msg: data.error || "Failed to record check-in" });
+          setIsCheckedInToday(false);
+        }
+      }
+    } catch {
+      await enqueue({
+        type: "CHECK_IN",
+        url: "/api/check-ins",
+        method: "POST",
+        payload: { memberId: member.id },
+        description: `Check-in: ${member.fullName}`,
+      });
+      setActionNotice({ success: true, msg: "Network drop. Check-in queued offline ✓" });
+    } finally {
+      setIsCheckInLoading(false);
+    }
+  }
+
+  async function handleSaveNotes() {
+    setIsNotesSaving(true);
+    try {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        await enqueue({
+          type: "MEMBER_NOTE",
+          url: `/api/members/${member.id}`,
+          method: "PATCH",
+          payload: { notes: notesText },
+          description: `Note: ${member.fullName}`,
+        });
+        setIsEditingNotes(false);
+        setNotesPendingSync(true);
+        setActionNotice({ success: true, msg: "Note saved offline (queued to sync) ✓" });
+      } else {
+        const res = await fetch(`/api/members/${member.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ notes: notesText }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setIsEditingNotes(false);
+          setNotesPendingSync(false);
+          setActionNotice({ success: true, msg: "Notes updated successfully ✓" });
+          router.refresh();
+        } else {
+          setActionNotice({ success: false, msg: data.error || "Failed to update notes" });
+        }
+      }
+    } catch {
+      await enqueue({
+        type: "MEMBER_NOTE",
+        url: `/api/members/${member.id}`,
+        method: "PATCH",
+        payload: { notes: notesText },
+        description: `Note: ${member.fullName}`,
+      });
+      setIsEditingNotes(false);
+      setNotesPendingSync(true);
+      setActionNotice({ success: true, msg: "Network error. Note saved offline ✓" });
+    } finally {
+      setIsNotesSaving(false);
+    }
+  }
 
   // Derive active / latest membership and creator
   const latestMembership = member.memberships[0] || null;
@@ -332,6 +463,26 @@ export function MemberProfileClient({ member }: MemberProfileClientProps) {
 
         {/* Header Action Buttons */}
         <div className="flex flex-wrap items-center gap-2.5">
+          {/* Quick Check-In Button (Online or Offline Queue) */}
+          <button
+            onClick={handleCheckIn}
+            disabled={isCheckedInToday || isCheckInLoading}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
+              isCheckedInToday
+                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 cursor-default"
+                : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/10"
+            }`}
+          >
+            {isCheckInLoading ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : isCheckedInToday ? (
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            ) : (
+              <UserCheck className="w-3.5 h-3.5" />
+            )}
+            <span>{isCheckedInToday ? "Checked In Today" : "Check In"}</span>
+          </button>
+
           <button
             onClick={() => setIsRenewalOpen(true)}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-semibold shadow-lg shadow-amber-500/10 transition-colors"
@@ -624,12 +775,63 @@ export function MemberProfileClient({ member }: MemberProfileClientProps) {
                   )}
                 </div>
               )}
-              {member.notes && (
-                <div className="pt-2 border-t border-[#252830]">
-                  <span className="text-gray-500 text-[11px] block">Notes</span>
-                  <p className="text-gray-300 italic text-[11px]">{member.notes}</p>
+              {/* Quick Notes with Offline Edit Support */}
+              <div className="pt-2 border-t border-[#252830]">
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 text-[11px] block">Notes</span>
+                    {notesPendingSync && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold">
+                        Sync Pending
+                      </span>
+                    )}
+                  </div>
+                  {!isEditingNotes && (
+                    <button
+                      onClick={() => {
+                        setNotesText(notesText || member.notes || "");
+                        setIsEditingNotes(true);
+                      }}
+                      className="text-[11px] text-amber-400 hover:underline flex items-center gap-1 font-medium"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                      <span>{notesText || member.notes ? "Edit Note" : "Add Note"}</span>
+                    </button>
+                  )}
                 </div>
-              )}
+
+                {isEditingNotes ? (
+                  <div className="space-y-2 mt-2">
+                    <textarea
+                      value={notesText}
+                      onChange={(e) => setNotesText(e.target.value)}
+                      rows={3}
+                      placeholder="Enter member notes (medical conditions, workout goals, preferences)..."
+                      className="w-full text-xs bg-[#111316] border border-[#252830] rounded-lg p-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-amber-500 leading-relaxed"
+                    />
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => setIsEditingNotes(false)}
+                        className="px-2.5 py-1 rounded text-xs text-gray-400 hover:text-white"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSaveNotes}
+                        disabled={isNotesSaving}
+                        className="px-3 py-1 rounded bg-amber-500 hover:bg-amber-400 text-black font-semibold text-xs flex items-center gap-1 disabled:opacity-50"
+                      >
+                        {isNotesSaving && <Loader2 className="w-3 h-3 animate-spin" />}
+                        Save Note
+                      </button>
+                    </div>
+                  </div>
+                ) : notesText || member.notes ? (
+                  <p className="text-gray-300 italic text-[11px] leading-relaxed">{notesText || member.notes}</p>
+                ) : (
+                  <p className="text-gray-500 text-[11px] italic">No notes recorded yet</p>
+                )}
+              </div>
             </div>
           </div>
 

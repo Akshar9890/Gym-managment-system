@@ -20,6 +20,10 @@ import {
   UpcomingExpirationsTable,
   ExpirationRow,
 } from "@/components/dashboard/UpcomingExpirationsTable";
+import {
+  AppDownloadButton,
+  AppDownloadCard,
+} from "@/components/dashboard/AppDownloadSection";
 
 export const dynamic = "force-dynamic";
 
@@ -254,7 +258,8 @@ export default async function DashboardPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <AppDownloadButton />
           <Link
             href="/members?action=create"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-semibold shadow-lg shadow-amber-500/10 transition-colors"
@@ -391,7 +396,7 @@ export default async function DashboardPage() {
         {/* Revenue MTD */}
         <Link
           href="/reports"
-          className="bg-[#17191E] border border-[#252830] hover:border-amber-500/40 hover:bg-[#1C1F26] rounded-xl p-4 flex flex-col justify-between transition-all group cursor-pointer shadow-md"
+          className="col-span-2 sm:col-span-1 bg-[#17191E] border border-[#252830] hover:border-amber-500/40 hover:bg-[#1C1F26] rounded-xl p-4 flex flex-col justify-between transition-all group cursor-pointer shadow-md"
         >
           <div className="flex items-center justify-between text-gray-400 group-hover:text-gray-300">
             <span className="text-xs font-medium">MTD Revenue</span>
@@ -429,7 +434,7 @@ export default async function DashboardPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-4 text-xs shrink-0">
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:flex items-center gap-2 sm:gap-4 text-xs w-full md:w-auto">
             {pendingApprovalsCount > 0 && (
               <Link
                 href="/payment-verification"
@@ -471,6 +476,9 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Application Download Card */}
+      <AppDownloadCard />
 
       {/* Upcoming Expirations Table with 1-Click WhatsApp reminder */}
       <UpcomingExpirationsTable initialRows={expirationRows} />

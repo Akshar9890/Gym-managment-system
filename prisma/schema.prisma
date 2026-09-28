@@ -114,6 +114,7 @@ model User {
   membershipsCreated  Membership[] @relation("MembershipCreatedBy")
   membershipsVerified Membership[] @relation("MembershipVerifiedBy")
   membersCreated      Member[]     @relation("MemberCreatedBy")
+  checkInsCreated     CheckIn[]    @relation("CheckInCreatedBy")
   passkeys            Passkey[]
 
   @@index([email])
@@ -189,6 +190,7 @@ model Member {
   memberships           Membership[]
   payments              Payment[]
   notifications         Notification[]
+  checkIns              CheckIn[]
 
   @@index([phoneNumber])
   @@index([whatsappNumber])
@@ -341,3 +343,48 @@ model JobExecution {
 
   @@map("job_executions")
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CHECK-IN (front-desk attendance logging)
+// Compound unique: [memberId, checkInDate] for daily idempotency
+// ─────────────────────────────────────────────────────────────────────────────
+
+model CheckIn {
+  id          String    @id @default(cuid())
+  memberId    String
+  checkInDate DateTime  @db.Date // Asia/Kolkata date
+  checkInTime DateTime  @default(now())
+  createdById String?
+  notes       String?
+  createdAt   DateTime  @default(now())
+
+  member      Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  createdBy   User?     @relation("CheckInCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([memberId, checkInDate], name: "daily_member_checkin")
+  @@index([checkInDate])
+  @@index([memberId])
+  @@map("check_ins")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PWA TELEMETRY (installation, platform adoption & offline metrics)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model PwaTelemetry {
+  id           String    @id @default(cuid())
+  sessionId    String?   // anonymous per-launch session id (stored in sessionStorage)
+  event        String    // e.g. "INSTALL_PROMPT_SHOWN", "INSTALL_ACCEPTED", "SESSION_START"
+  platform     String    // "Android", "iOS", "Windows", "macOS", "Linux", "Other"
+  isStandalone Boolean   @default(false)
+  metadata     Json?
+  userId       String?
+  createdAt    DateTime  @default(now())
+
+  @@index([event, createdAt])
+  @@index([platform])
+  @@index([sessionId])
+  @@map("pwa_telemetry")
+}
+
+

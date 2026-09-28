@@ -33,12 +33,27 @@ export async function POST(req: NextRequest) {
         include: { passkeys: true },
       });
 
-      if (user && user.passkeys.length > 0) {
-        allowCredentials = user.passkeys.map((p) => ({
-          id: p.credentialId,
-          transports: p.transports ? (p.transports.split(",") as any) : undefined,
-        }));
+      if (!user) {
+        return NextResponse.json(
+          { error: "No account found with this email. Please check your spelling." },
+          { status: 404 }
+        );
       }
+
+      if (user.passkeys.length === 0) {
+        return NextResponse.json(
+          {
+            error:
+              "No biometric passkey registered for this account yet. Please sign in with your password first, then enable Face ID / Touch ID in Settings.",
+          },
+          { status: 400 }
+        );
+      }
+
+      allowCredentials = user.passkeys.map((p) => ({
+        id: p.credentialId,
+        transports: p.transports ? (p.transports.split(",") as any) : undefined,
+      }));
     }
 
     const options = await generateAuthenticationOptions({

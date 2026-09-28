@@ -41,13 +41,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { rpID, origin } = getWebAuthnConfig(req);
+    const { expectedRPIDs, expectedOrigins } = getWebAuthnConfig(req);
 
     const verification = await verifyRegistrationResponse({
       response: registrationResponse,
       expectedChallenge: verified.challenge,
-      expectedOrigin: origin,
-      expectedRPID: rpID,
+      expectedOrigin: expectedOrigins,
+      expectedRPID: expectedRPIDs,
     });
 
     if (!verification.verified || !verification.registrationInfo) {

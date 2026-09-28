@@ -1,4 +1,4 @@
-// components/reports/ReportsChartsClient.tsx — Analytics charts with recharts & CSV export buttons
+// components/reports/ReportsChartsClient.tsx — Analytics charts with recharts, CSV export, and PWA analytics
 "use client";
 
 import React from "react";
@@ -15,6 +15,7 @@ import {
   Legend,
 } from "recharts";
 import { Download, FileSpreadsheet, TrendingUp, Users, CreditCard, ShieldCheck } from "lucide-react";
+import { PwaAnalyticsCard } from "@/components/pwa/PwaAnalyticsCard";
 
 interface ReportsChartsClientProps {
   monthlyRevenue: Array<{ month: string; revenue: number }>;
@@ -256,6 +257,9 @@ export function ReportsChartsClient({
           </div>
         </div>
       </div>
+
+      {/* PWA Analytics Section */}
+      <PwaAnalyticsCard />
     </div>
   );
 }

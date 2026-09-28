@@ -1,0 +1,40 @@
+<svg width="512" height="512" viewBox="0 0 512" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#14171D"/>
+        <stop offset="100%" stop-color="#0B0C0E"/>
+      </linearGradient>
+      <linearGradient id="amberGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#FBBF24"/>
+        <stop offset="50%" stop-color="#F59E0B"/>
+        <stop offset="100%" stop-color="#D97706"/>
+      </linearGradient>
+      <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#F59E0B" flood-opacity="0.3"/>
+      </filter>
+    </defs>
+    
+    <!-- Background rounded squircle / rect -->
+    <rect width="512" height="512" rx="113" fill="url(#bgGrad)"/>
+    
+    <!-- Subtle amber border -->
+    <rect x="2" y="2" width="508" height="508" rx="111" fill="none" stroke="#F59E0B" stroke-opacity="0.25" stroke-width="2"/>
+    
+    <!-- Centered dumbbell emblem & BSF letters -->
+    <g transform="translate(92, 92)" filter="url(#glow)">
+      <!-- Scaled 24x24 Dumbbell Path -->
+      <g transform="scale(13.666666666666666)">
+        <!-- Dumbbell Plates & Bar -->
+        <rect x="2" y="7" width="2" height="10" rx="1" fill="url(#amberGrad)"/>
+        <rect x="5" y="5" width="2" height="14" rx="1" fill="url(#amberGrad)"/>
+        
+        <rect x="8" y="10.5" width="8" height="3" rx="1.5" fill="#FFFFFF" fill-opacity="0.95"/>
+        
+        <rect x="17" y="5" width="2" height="14" rx="1" fill="url(#amberGrad)"/>
+        <rect x="20" y="7" width="2" height="10" rx="1" fill="url(#amberGrad)"/>
+      </g>
+    </g>
+
+    <!-- Gym Brand Acronym -->
+    <text x="256" y="440.32" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="67" fill="#F3F4F6" text-anchor="middle" letter-spacing="2">BSF GYM</text>
+  </svg>

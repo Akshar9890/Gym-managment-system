@@ -54,6 +54,13 @@ export function PasskeyManager() {
   async function handleRegisterPasskey() {
     try {
       setMessage(null);
+
+      if (typeof window !== "undefined" && !window.PublicKeyCredential) {
+        throw new Error(
+          "Biometric passkeys are not supported on this browser or device."
+        );
+      }
+
       setRegistering(true);
 
       // 1. Get registration options from server
@@ -94,7 +101,12 @@ export function PasskeyManager() {
       if (err.name === "NotAllowedError") {
         setMessage({
           type: "error",
-          text: "Passkey registration was cancelled by user.",
+          text: "Passkey setup was cancelled or denied by your device. If prompted, please allow Face ID / Touch ID or Device Passcode.",
+        });
+      } else if (err.name === "SecurityError") {
+        setMessage({
+          type: "error",
+          text: "Security error: Domain mismatch. Please ensure you are on the official app domain.",
         });
       } else {
         setMessage({

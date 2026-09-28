@@ -22,6 +22,7 @@ import {
   X,
   AlertTriangle,
   FileCheck,
+  Download,
 } from "lucide-react";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
@@ -75,13 +76,87 @@ export function PaymentVerificationClient({ currentUserId }: { currentUserId: st
   const [searchQuery, setSearchQuery] = useState("");
 
   // Modals state
-  const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null);
+  const [selectedProof, setSelectedProof] = useState<{
+    url: string;
+    receiptNumber: string;
+    memberName: string;
+  } | null>(null);
+  const [downloadNotice, setDownloadNotice] = useState<string | null>(null);
   const [approvingPayment, setApprovingPayment] = useState<PaymentItem | null>(null);
   const [rejectingPayment, setRejectingPayment] = useState<PaymentItem | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+  const downloadProof = async (url: string, baseName: string) => {
+    if (!url) return;
+
+    let ext = ".jpg";
+    if (url.startsWith("data:application/pdf") || url.toLowerCase().includes(".pdf")) {
+      ext = ".pdf";
+    } else if (url.startsWith("data:image/png") || url.toLowerCase().includes(".png")) {
+      ext = ".png";
+    } else if (url.startsWith("data:image/webp") || url.toLowerCase().includes(".webp")) {
+      ext = ".webp";
+    } else if (url.startsWith("data:image/jpeg") || url.toLowerCase().includes(".jpg") || url.toLowerCase().includes(".jpeg")) {
+      ext = ".jpg";
+    }
+
+    const cleanName = baseName.trim().replace(/[^\w.-]/g, "_");
+    const targetFilename = cleanName.includes(".") ? cleanName : `${cleanName}${ext}`;
+
+    try {
+      // Handles Vercel Base64 Data URIs directly
+      if (url.startsWith("data:")) {
+        const arr = url.split(",");
+        const mimeMatch = arr[0].match(/:(.*?);/);
+        const mime = mimeMatch ? mimeMatch[1] : "application/octet-stream";
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        const blob = new Blob([u8arr], { type: mime });
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = targetFilename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+        setDownloadNotice(`Downloaded ${targetFilename}`);
+        setTimeout(() => setDownloadNotice(null), 3000);
+        return;
+      }
+
+      // Handles standard / local upload URLs via fetch to force file download
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Failed to fetch proof file");
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = targetFilename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+      setDownloadNotice(`Downloaded ${targetFilename}`);
+      setTimeout(() => setDownloadNotice(null), 3000);
+    } catch (err) {
+      console.warn("Direct blob download failed, falling back to anchor download:", err);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = targetFilename;
+      link.target = "_blank";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
 
   const fetchPayments = useCallback(async () => {
     setLoading(true);
@@ -419,14 +494,36 @@ export function PaymentVerificationClient({ currentUserId }: { currentUserId: st
                       {/* Payment Proof */}
                       <td className="py-4 px-4">
                         {payment.paymentProof ? (
-                          <button
-                            type="button"
-                            onClick={() => setSelectedProofUrl(payment.paymentProof || null)}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-medium hover:bg-amber-500/20 transition-colors"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            View Proof
-                          </button>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setSelectedProof({
+                                  url: payment.paymentProof!,
+                                  receiptNumber: payment.receiptNumber,
+                                  memberName: payment.member.fullName,
+                                })
+                              }
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-medium hover:bg-amber-500/20 transition-colors"
+                              title="View Payment Proof"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                downloadProof(
+                                  payment.paymentProof!,
+                                  `BSF-Proof-${payment.receiptNumber}-${payment.member.fullName}`
+                                )
+                              }
+                              className="p-1.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 hover:text-amber-400 hover:bg-slate-700 transition-colors"
+                              title="Download Proof File"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         ) : (
                           <span className="text-xs text-slate-500 italic">No proof</span>
                         )}
@@ -532,43 +629,70 @@ export function PaymentVerificationClient({ currentUserId }: { currentUserId: st
       </div>
 
       {/* Proof Viewer Modal */}
-      {selectedProofUrl && (
+      {selectedProof && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
           <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-slate-950/60">
-              <span className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-amber-400" /> Attached Payment Proof
-              </span>
               <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-amber-400" />
+                <span className="text-sm font-semibold text-slate-200">
+                  Attached Payment Proof
+                </span>
+                <span className="text-xs font-mono text-slate-400 bg-slate-800 px-2 py-0.5 rounded">
+                  #{selectedProof.receiptNumber}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    downloadProof(
+                      selectedProof.url,
+                      `BSF-Proof-${selectedProof.receiptNumber}-${selectedProof.memberName}`
+                    )
+                  }
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/30 text-xs font-semibold hover:bg-amber-500/25 transition-colors shadow-sm"
+                  title="Download Proof File"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download</span>
+                </button>
                 <a
-                  href={selectedProofUrl}
+                  href={selectedProof.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-slate-800"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-slate-800 transition-colors"
                   title="Open in new tab"
                 >
                   <ExternalLink className="w-4 h-4" />
                 </a>
                 <button
-                  onClick={() => setSelectedProofUrl(null)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                  onClick={() => setSelectedProof(null)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
+            {downloadNotice && (
+              <div className="px-5 py-2 bg-emerald-500/10 border-b border-emerald-500/20 text-emerald-400 text-xs flex items-center gap-2">
+                <CheckCircle className="w-3.5 h-3.5" />
+                <span>{downloadNotice}</span>
+              </div>
+            )}
+
             <div className="p-4 flex items-center justify-center bg-black/40 max-h-[75vh] overflow-auto">
-              {selectedProofUrl.toLowerCase().endsWith(".pdf") ||
-              selectedProofUrl.startsWith("data:application/pdf") ? (
+              {selectedProof.url.toLowerCase().endsWith(".pdf") ||
+              selectedProof.url.startsWith("data:application/pdf") ? (
                 <iframe
-                  src={selectedProofUrl}
+                  src={selectedProof.url}
                   className="w-full h-[65vh] rounded-lg border border-slate-800"
                   title="PDF Proof"
                 />
               ) : (
                 <img
-                  src={selectedProofUrl}
+                  src={selectedProof.url}
                   alt="Payment Proof Full"
                   className="max-h-[65vh] max-w-full object-contain rounded-lg shadow-md"
                 />

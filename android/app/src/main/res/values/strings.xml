@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">BSF THE GYM</string>
+    <string name="title_activity_main">BSF THE GYM</string>
+    <string name="package_name">com.bsfgym.app</string>
+    <string name="custom_url_scheme">com.bsfgym.app</string>
+</resources>

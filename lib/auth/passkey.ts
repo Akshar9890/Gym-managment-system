@@ -14,10 +14,38 @@ export function getWebAuthnConfig(req: Request) {
     (hostname === "localhost" ? "http" : "https");
   const origin = `${proto}://${host}`;
 
+  // Comprehensive origin list supporting direct Vercel deployment, custom domain,
+  // Capacitor iOS/Android embedded WebView, and localhost dev environments
+  const expectedOrigins = Array.from(
+    new Set([
+      origin,
+      `https://${hostname}`,
+      `http://${hostname}`,
+      `https://${host}`,
+      `http://${host}`,
+      "https://gym-managment-system-eight.vercel.app",
+      "capacitor://localhost",
+      "ionic://localhost",
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "http://localhost",
+    ])
+  );
+
+  const expectedRPIDs = Array.from(
+    new Set([
+      hostname,
+      "gym-managment-system-eight.vercel.app",
+      "localhost",
+    ])
+  );
+
   return {
     rpName: "BSF THE GYM",
     rpID: hostname,
     origin,
+    expectedOrigins,
+    expectedRPIDs,
   };
 }
 

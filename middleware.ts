@@ -9,10 +9,18 @@ import { sessionOptions, SessionData } from "@/lib/auth/session";
 import { validateCsrf } from "@/lib/auth/csrf";
 
 // Routes that don't need authentication
-const PUBLIC_ROUTES = ["/login", "/api/auth/login", "/api/health"];
+const PUBLIC_ROUTES = [
+  "/login",
+  "/api/auth/login",
+  "/api/health",
+  "/sw.js",
+  "/manifest.webmanifest",
+  "/offline.html",
+];
 
 // API routes that are public (job endpoint is secured by its own secret)
-const PUBLIC_API_PREFIXES = ["/api/auth/"];
+// /api/pwa/telemetry POST is intentionally public — anonymous PWA events (install prompts, offline) must be tracked even pre-login
+const PUBLIC_API_PREFIXES = ["/api/auth/", "/api/pwa/telemetry"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -54,8 +62,8 @@ export const config = {
      * Match all request paths except:
      * - _next/static (static files)
      * - _next/image (image optimization)
-     * - favicon.ico, images, fonts, and other static assets
+     * - favicon.ico, images, fonts, service worker, manifest, and other static assets
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|eot)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sw\\.js|manifest\\.webmanifest|offline\\.html|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|eot|webmanifest)$).*)",
   ],
 };

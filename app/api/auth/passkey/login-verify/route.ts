@@ -54,13 +54,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { rpID, origin } = getWebAuthnConfig(req);
+    const { expectedRPIDs, expectedOrigins } = getWebAuthnConfig(req);
 
     const verification = await verifyAuthenticationResponse({
       response: authenticationResponse,
       expectedChallenge: verifiedChallenge.challenge,
-      expectedOrigin: origin,
-      expectedRPID: rpID,
+      expectedOrigin: expectedOrigins,
+      expectedRPID: expectedRPIDs,
       credential: {
         id: passkey.credentialId,
         publicKey: new Uint8Array(passkey.publicKey),

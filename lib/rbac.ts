@@ -15,6 +15,8 @@ export const Permission = {
   READ_MEMBER: "READ_MEMBER",
   UPDATE_MEMBER: "UPDATE_MEMBER",
   DELETE_MEMBER: "DELETE_MEMBER",
+  CHECK_IN_MEMBER: "CHECK_IN_MEMBER",
+  READ_CHECK_INS: "READ_CHECK_INS",
 
   // Membership management
   CREATE_MEMBERSHIP: "CREATE_MEMBERSHIP",
@@ -78,6 +80,8 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permission.SEND_MANUAL_REMINDER,
     Permission.MARK_NOTIFICATION_READ,
     Permission.VIEW_OWN_PERFORMANCE,
+    Permission.CHECK_IN_MEMBER,
+    Permission.READ_CHECK_INS,
   ],
 
   ADMIN: [
@@ -110,6 +114,8 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permission.MANAGE_STAFF,
     Permission.VIEW_STAFF_PERFORMANCE,
     Permission.VIEW_OWN_PERFORMANCE,
+    Permission.CHECK_IN_MEMBER,
+    Permission.READ_CHECK_INS,
   ],
 
   SUPER_ADMIN: [
@@ -144,6 +150,8 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permission.VIEW_OWN_PERFORMANCE,
     Permission.MANAGE_USERS,
     Permission.MANAGE_SYSTEM_SETTINGS,
+    Permission.CHECK_IN_MEMBER,
+    Permission.READ_CHECK_INS,
   ],
 };
 
