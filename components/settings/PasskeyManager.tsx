@@ -98,11 +98,22 @@ export function PasskeyManager() {
 
       await fetchPasskeys();
     } catch (err: any) {
+      const isNative =
+        typeof window !== "undefined" &&
+        Boolean((window as any).Capacitor?.isNativePlatform?.());
+
       if (err.name === "NotAllowedError") {
-        setMessage({
-          type: "error",
-          text: "Passkey setup was cancelled or denied by your device. If prompted, please allow Face ID / Touch ID or Device Passcode.",
-        });
+        if (isNative) {
+          setMessage({
+            type: "error",
+            text: "Apple restricts WebAuthn inside free personal developer test builds. For instant 1-tap Face ID right now without restrictions, open Safari on your iPhone, visit gym-managment-system-eight.vercel.app, and tap Share ➔ 'Add to Home Screen'!",
+          });
+        } else {
+          setMessage({
+            type: "error",
+            text: "Passkey setup was cancelled or denied by your device. If prompted, please allow Face ID / Touch ID or Device Passcode in iPhone Settings.",
+          });
+        }
       } else if (err.name === "SecurityError") {
         setMessage({
           type: "error",

@@ -88,10 +88,20 @@ export default function LoginPage() {
       router.push(verifyData.redirectUrl || "/dashboard");
       router.refresh();
     } catch (err: any) {
+      const isNative =
+        typeof window !== "undefined" &&
+        Boolean((window as any).Capacitor?.isNativePlatform?.());
+
       if (err.name === "NotAllowedError") {
-        setError(
-          "No passkey was found on this device, or the prompt was cancelled. Please sign in with your password first, then add Face ID / Touch ID in Settings."
-        );
+        if (isNative) {
+          setError(
+            "Apple restricts WebAuthn inside personal Xcode test builds. For instant 1-tap Face ID, open Safari on your iPhone, visit gym-managment-system-eight.vercel.app, and tap Share ➔ 'Add to Home Screen'!"
+          );
+        } else {
+          setError(
+            "No passkey was found on this device, or the prompt was cancelled. Please sign in with your password first, then add Face ID / Touch ID in Settings."
+          );
+        }
       } else {
         setError(err.message || "Passkey login failed. Please try again or use password.");
       }
